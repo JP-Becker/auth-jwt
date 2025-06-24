@@ -1,10 +1,12 @@
 @baseUrl = http://localhost:3000
 
+@adminAccessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQWRtaW4gVXNlciIsImVtYWlsIjoiYWRtaW5AdXNlci5jb20iLCJpYXQiOjE3NTA3MTg1ODh9.28918b1FWifvxIJWNMM-BzfVMS8A4_qza2VTaQIC32o
+
 ### Create new user
 # @name createUserAction
 POST {{baseUrl}}/users
 Content-Type: application/json
-Authorization
+Authorization: Bearer {{adminAccessToken}}
 
 {
     "name": "John Doe",
@@ -17,7 +19,7 @@ Authorization
 
 ### Get user by ID
 GET {{baseUrl}}/users/{{userId}}
-
+Authorization: Bearer {{adminAccessToken}}
 
 ### Update user
 PATCH {{baseUrl}}/users/{{userId}}

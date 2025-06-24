@@ -2,8 +2,18 @@ import express, { NextFunction } from "express";
 import { loadFixtures } from "./fixtures";
 import { logRequest, logResponse } from "./lib/log";
 import { userRouter } from "./router/user-router";
-import { createDatabaseConnection } from "./database";
-import  jwt  from "jsonwebtoken";
+import {
+  AuthenticationService,
+  createAuthenticationService,
+} from "./services/AuthenticationService";
+import dotenv from "dotenv";
+import {
+  InvalidAccessTokenError,
+  InvalidCredentialsError,
+  TokenNotProvidedError,
+} from "./errors";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,10 +22,40 @@ app.use(express.json());
 
 //log requests
 app.use(logRequest);
-// tudo que usa app.use é um middleware -> é uma função que é executada antes de uma rota ser chamada
 //log responses headers
 app.use(logResponse);
 
+const protectedRoutes = ["/protected", "/users"];
+
+// middleware de autenticação
+// middleware do express sao exec utados antes dos route handlers
+// fazem processamento e chamam a funcao next()
+app.use((req, res, next) => {
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    req.url.startsWith(route)
+  );
+
+  if (!isProtectedRoute) {
+    return next();
+  }
+
+  const accessToken = req.headers.authorization?.replace("Bearer ", "");
+
+  if (!accessToken) {
+    // passando um erro diretamete no next ao invés de jogar um throw new error
+    next(new TokenNotProvidedError());
+    return;
+  }
+
+  try {
+    const payload = AuthenticationService.verifyAccessToken(accessToken);
+    console.log(payload);
+    next();
+  } catch (e) {
+    next(new InvalidAccessTokenError({ options: { cause: e } }));
+    return;
+  }
+});
 
 // Tratamento de erros para pre-middlewares
 app.use(
@@ -32,21 +72,16 @@ app.use(
   }
 );
 
-
-app.post("/login", async (req, res) => {
-    const {email, password} = req.body;
-    const {userRepository} = await createDatabaseConnection();
-    const user = await userRepository.findOne({where: {email}})
-    if (!user || !user.comparePassword(password)) {
-
-
-      
-      throw new Error('Invalid Credentials')
-    }
-    const accessToken = jwt.sign({ name: user.name, email: user.email}, 'secret');
-    res.json({ accessToken })
+app.post("/login", async (req, res, next) => {
+  const { email, password } = req.body;
+  try {
+    const authService = await createAuthenticationService();
+    const accessToken = await authService.login(email, password);
+    res.json({ access_token: accessToken });
+  } catch (e) {
+    next(e);
+  }
 });
-
 
 // Rotas da API
 app.use("", userRouter);
@@ -65,11 +100,9 @@ function errorHandler(
   res: express.Response,
   next: NextFunction
 ) {
-  if(!error){
+  if (!error) {
     return;
   }
-  
-  //some errors
 
   const errorDetails = {
     name: error.name,
@@ -77,12 +110,37 @@ function errorHandler(
     stack: error.stack,
     cause: error.cause,
   };
-  console.error("Error details:", JSON.stringify(errorDetails, (key, value) => {
-    // Se for a stack trace, formata com quebras de linha adequadas
-    if (key === 'stack' && typeof value === 'string') {
-      return value.split('\n').map(line => line.trim());
-    }
-    return value;
-  }, 2));
+
+  console.error(
+    "Error details:",
+    JSON.stringify(
+      errorDetails,
+      (key, value) => {
+        // Se for a stack trace, formata com quebras de linha adequadas
+        if (key === "stack" && typeof value === "string") {
+          return value.split("\n").map((line) => line.trim());
+        }
+        return value;
+      },
+      2
+    )
+  );
+
+  //some errors
+  if (error instanceof TokenNotProvidedError) {
+    res.status(401).send({ message: "Token not provided" });
+    return;
+  }
+
+  if (error instanceof InvalidAccessTokenError) {
+    res.status(401).send({ message: "Invalid access token" });
+    return;
+  }
+
+  if (error instanceof InvalidCredentialsError) {
+    res.status(401).send({ message: "Invalid credentials" });
+    return;
+  }
+
   res.status(500).send({ message: "Internal server error" });
 }
