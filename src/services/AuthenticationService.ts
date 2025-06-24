@@ -17,9 +17,13 @@ export class AuthenticationService {
   }
 
   static generateAccessToken(user: User): string {
+    // método para setar o payload e secret key do token
     return jwt.sign(
       { name: user.name, email: user.email },
-      process.env.JWT_SECRET as string
+      process.env.JWT_SECRET as string, 
+      {
+        expiresIn: process.env.JWT_EXPIRES_IN as any,
+      }
     );
   }
 
