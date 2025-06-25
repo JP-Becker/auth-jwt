@@ -5,3 +5,9 @@ Content-Type: application/json
    "email": "admin@user.com",
    "password": "admin"
 }
+
+// em prod deve ser https e não http
+###
+POST http://localhost:3000/refresh-token
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQWRtaW4gVXNlciIsImVtYWlsIjoiYWRtaW5AdXNlci5jb20iLCJpYXQiOjE3NTA4MTA3MzksImV4cCI6MTc1MDgxMDc5OX0._VKA6k7KqQ_R27IKWNwz8xo-uzP-x-6MGheuBxAulGs
+Content-Type: application/json

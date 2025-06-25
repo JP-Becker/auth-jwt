@@ -11,6 +11,13 @@ export class TokenNotProvidedError extends Error {
       this.name = "InvalidAccessTokenError";
     }
   }
+
+  export class InvalidRefreshTokenError extends Error {
+    constructor(params?: { message?: string; options?: ErrorOptions }) {
+      super(params?.message ?? "Invalid access token", params?.options);
+      this.name = "InvalidAccessTokenError";
+    }
+  }
   
   export class InvalidCredentialsError extends Error {
     constructor(params?: { message?: string; options?: ErrorOptions }) {
