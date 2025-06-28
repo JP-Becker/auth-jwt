@@ -1,6 +1,6 @@
 @baseUrl = http://localhost:3000
 
-@adminAccessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQWRtaW4gVXNlciIsImVtYWlsIjoiYWRtaW5AdXNlci5jb20iLCJpYXQiOjE3NTA3MTg1ODh9.28918b1FWifvxIJWNMM-BzfVMS8A4_qza2VTaQIC32o
+@adminAccessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQWRtaW4gVXNlciIsImVtYWlsIjoiYWRtaW5AdXNlci5jb20iLCJpYXQiOjE3NTExMzYzNDYsImV4cCI6MTc1MTEzNjQwNiwic3ViIjoiMSJ9.Un0Zx3CZ0024FWyQ09-wXDqkypHkadhuBkxPlR9dAgA
 
 ### Create new user
 # @name createUserAction
@@ -10,7 +10,7 @@ Authorization: Bearer {{adminAccessToken}}
 
 {
     "name": "John Doe",
-    "email": "john@example.com",
+    "email": "johnas@example.com",
     "password": "123456"
 }
 

@@ -10,8 +10,12 @@ import dotenv from "dotenv";
 import {
   InvalidAccessTokenError,
   InvalidCredentialsError,
+  NotFoundError,
+  TokenExpiredError,
   TokenNotProvidedError,
 } from "./errors";
+import jwt from "jsonwebtoken";
+import { createUserService } from "./services/UserService";
 
 dotenv.config();
 
@@ -27,10 +31,7 @@ app.use(logResponse);
 
 const protectedRoutes = ["/protected", "/users"];
 
-// middleware de autenticação
-// middleware do express sao exec utados antes dos route handlers
-// fazem processamento e chamam a funcao next()
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   const isProtectedRoute = protectedRoutes.some((route) =>
     req.url.startsWith(route)
   );
@@ -42,18 +43,22 @@ app.use((req, res, next) => {
   const accessToken = req.headers.authorization?.replace("Bearer ", "");
 
   if (!accessToken) {
-    // passando um erro diretamete no next ao invés de jogar um throw new error
     next(new TokenNotProvidedError());
     return;
   }
 
   try {
     const payload = AuthenticationService.verifyAccessToken(accessToken);
-    console.log(payload);
+    const userService = await createUserService();
+    const user = await userService.findById(+payload.sub);
+    req.user = user!;// o ! depois do user é pra dizer pro typescript q eu tenho ctz que o user nao vai ser null ou undefined 
+    // operador de asserção nao nula
     next();
   } catch (e) {
-    next(new InvalidAccessTokenError({ options: { cause: e } }));
-    return;
+    if (e instanceof jwt.TokenExpiredError) {
+      return next(new TokenExpiredError({ options: { cause: e } }));
+    }
+    return next(new InvalidAccessTokenError({ options: { cause: e } }));
   }
 });
 
@@ -84,19 +89,31 @@ app.post("/login", async (req, res, next) => {
 });
 
 app.post("/refresh-token", async (req, res, next) => {
-  const refreshToken = req.body?.refresh_token || req.headers.authorization?.replace("Bearer ", "");
+  const refreshToken =
+    req.body?.refresh_token ||
+    req.headers.authorization?.replace("Bearer ", "");
+
   if (!refreshToken) {
-    next (new TokenNotProvidedError());
+    next(new TokenNotProvidedError());
     return;
   }
+
   try {
     const authService = await createAuthenticationService();
     const tokens = await authService.doRefreshToken(refreshToken);
     res.json(tokens);
   } catch (e) {
+    if (e instanceof jwt.TokenExpiredError) {
+      return next(new TokenExpiredError({ options: { cause: e } }));
+    }
     next(e);
   }
 });
+
+app.get('/protected', (req, res) => {
+  res.json(req.user);
+})
+
 // Rotas da API
 app.use("", userRouter);
 
@@ -153,6 +170,16 @@ function errorHandler(
 
   if (error instanceof InvalidCredentialsError) {
     res.status(401).send({ message: "Invalid credentials" });
+    return;
+  }
+
+  if(error instanceof TokenExpiredError){
+    res.status(401).json({message: 'Token expired'})
+    return;
+  }
+
+  if(error instanceof NotFoundError){
+    res.status(401).json({message: 'Token expired'})
     return;
   }
 
