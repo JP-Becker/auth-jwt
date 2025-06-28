@@ -1,14 +1,20 @@
-import { EntityNotFoundError, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { User } from "../entities/User";
 import jwt from "jsonwebtoken";
-import { InvalidCredentialsError, InvalidRefreshTokenError, NotFoundError } from "../errors"
+import {
+  InvalidCredentialsError,
+  InvalidRefreshTokenError,
+  NotFoundError,
+} from "../errors";
 import { createDatabaseConnection } from "../database";
 
 export class AuthenticationService {
-  constructor(private userRepository: Repository<User>) { }
+  constructor(private userRepository: Repository<User>) {}
 
-  // fazendo 
-  async login(email: string, password: string): Promise<{ access_token: string, refresh_token: string }> {
+  async login(
+    email: string,
+    password: string
+  ): Promise<{ access_token: string; refresh_token: string }> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user || !user.comparePassword(password)) {
       throw new InvalidCredentialsError();
@@ -18,43 +24,47 @@ export class AuthenticationService {
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
-    }
+    };
   }
 
   static generateAccessToken(user: User): string {
-    // método para setar o payload e secret key do token
     return jwt.sign(
       { name: user.name, email: user.email },
-      process.env.JWT_SECRET as string,
+      process.env.JWT_PRIVATE_KEY as string,
       {
-        expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN as any,// tempo de expiracao
-        // o subject nao é obrigatorio
-        subject: user.id + "" // concatenando um number com string vazia ja transforma em string o number
+        expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN as any,
+        subject: user.id + "",
+        algorithm: 'RS256'
       }
     );
   }
+
   static verifyAccessToken(token: string): {
     sub: string;
     name: string;
     email: string;
     iat: number;
+    exp: number;
   } {
-    return jwt.verify(token, process.env.JWT_SECRET as string) as {
+    return jwt.verify(token, process.env.JWT_PUBLIC_KEY as string, {
+      algorithms: ["RS256"],
+    }) as {
       sub: string;
       name: string;
       email: string;
       iat: number;
+      exp: number;
     };
   }
 
   static generateRefreshToken(user: User): string {
-    // método para setar o payload e secret key do token
     return jwt.sign(
       { name: user.name, email: user.email },
-      process.env.JWT_SECRET as string,
+      process.env.JWT_PRIVATE_KEY as string,
       {
         expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRES_IN as any,
-        subject: user.id + ""
+        subject: user.id + "",
+        algorithm: 'RS256'
       }
     );
   }
@@ -64,12 +74,16 @@ export class AuthenticationService {
     name: string;
     email: string;
     iat: number;
+    exp: number;
   } {
-    return jwt.verify(token, process.env.JWT_SECRET as string) as {
+    return jwt.verify(token, process.env.JWT_PUBLIC_KEY as string, {
+      algorithms: ["RS256"],
+    }) as {
       sub: string;
       name: string;
       email: string;
       iat: number;
+      exp: number;
     };
   }
 
@@ -77,19 +91,19 @@ export class AuthenticationService {
     try {
       const payload = AuthenticationService.verifyRefreshToken(refreshToken);
       const user = await this.userRepository.findOne({
-        where: { id: +payload?.sub }, // o + na frente do payload converte o valor para int novamente
+        where: { id: +payload.sub },
       });
       if (!user) {
-        throw new NotFoundError({ message: 'User not found' })
+        throw new NotFoundError({ message: "User not found" });
       }
       const newAccessToken = AuthenticationService.generateAccessToken(user!);
       const newRefreshToken = AuthenticationService.generateRefreshToken(user!);
       return {
         access_token: newAccessToken,
         refresh_token: newRefreshToken,
-      }
+      };
     } catch (e) {
-      throw new InvalidRefreshTokenError({ options: { cause: e } })
+      throw new InvalidRefreshTokenError({ options: { cause: e } });
     }
   }
 }
